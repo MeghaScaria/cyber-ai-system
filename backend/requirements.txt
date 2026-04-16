@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+httpx
+motor
+firebase-admin
+transformers
+torch
+scikit-learn
+pandas
+numpy
+python-multipart
+python-jose[cryptography]
+passlib[bcrypt]
+pytest
