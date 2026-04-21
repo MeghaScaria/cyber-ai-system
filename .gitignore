@@ -1,27 +1,67 @@
-# Python
+# =========================
+# 🔥 Python
+# =========================
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+venv/
 .venv/
 
-# Jupyter
+# =========================
+# 🔥 Jupyter
+# =========================
 .ipynb_checkpoints/
 
-# Models
+# =========================
+# 🔥 Models
+# =========================
 *.pkl
 
-# Environment files
-.env
+# =========================
+# 🔥 Environment
+# =========================
+*.env
 
-# Flutter
+# =========================
+# 🔥 Dataset
+# =========================
+data/
+*.csv
+
+# =========================
+# 🔥 Logs
+# =========================
+logs/
+*.log
+
+# =========================
+# 🔥 IDE
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# 🔥 OS
+# =========================
+Thumbs.db
+.DS_Store
+
+# =========================
+# 🔥 Firebase / Secrets
+# =========================
+backend/app/firebase_key.json
+mobile_app/android/app/google-services.json
+fraud_app/android/app/google-services.json
+
+# =========================
+# 🔥 Build / Flutter
+# =========================
 .dart_tool/
 build/
 
-# VS Code
-.vscode/
-
-# Logs
-logs/
-
-# OS
-Thumbs.db
-.DS_Store
+# =========================
+# 🔥 Chrome Extension
+# =========================
+*.crx

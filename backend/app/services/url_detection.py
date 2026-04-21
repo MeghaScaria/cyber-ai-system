@@ -1,10 +1,15 @@
-import httpx
-from app.config.settings import settings
+import re
 
-async def check_urls(text: str):
-    """
-    Extracts URLs and checks them against VirusTotal and Google Safe Browsing.
-    Uses Random Forest for phishing detection.
-    """
-    # Placeholder logic
-    return {"detected": False, "urls": []}
+async def check_urls(message: str):
+    urls = re.findall(r'https?://\S+', message)
+
+    suspicious = False
+
+    for url in urls:
+        if any(word in url for word in ["login", "verify", "bank", "secure"]):
+            suspicious = True
+
+    return {
+        "detected": suspicious,
+        "urls": urls
+    }

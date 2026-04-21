@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Fraud AI Shield</title>
+
+  <!-- 📱 RESPONSIVE -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- 🎨 STYLES -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+  <!-- 🌌 BACKGROUND -->
+  <canvas id="bgCanvas"></canvas>
+
+  <div class="container">
+
+    <!-- 🔥 TITLE -->
+    <h2 class="title">Fraud AI Shield</h2>
+
+    <!-- 🔘 SCAN BUTTON -->
+    <button id="checkBtn" class="scan-btn">
+      🔍 Scan Website
+    </button>
+
+    <!-- 🔄 LOADER -->
+    <div id="loader" class="loader hidden"></div>
+
+    <!-- 📊 RESULT -->
+    <div id="resultBox" class="result">
+
+      <!-- 🎯 SCORE METER -->
+      <canvas id="scoreCanvas" width="120" height="120"></canvas>
+
+      <!-- 🔐 STATUS -->
+      <p id="status" class="status">
+        Click scan to analyze the website
+      </p>
+
+      <!-- 💎 QUOTE CARD -->
+      <div class="quote-glass">
+        <p id="quote" class="quote">
+          Your AI shield is ready 🛡️
+        </p>
+        <span id="refreshQuote" class="refresh" title="Refresh quote">🔄</span>
+      </div>
+
+      <!-- 📈 SCORE -->
+      <p id="scoreText" class="score">
+        Risk Score: --%
+      </p>
+
+    </div>
+
+  </div>
+
+  <!-- 🚀 SCRIPT -->
+  <script src="popup.js"></script>
+
+</body>
+</html>

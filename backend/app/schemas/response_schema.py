@@ -7,6 +7,13 @@ class AnalysisResponse(BaseModel):
     phishing_detected: bool
     anomaly_detected: bool
     risk_level: str
+    confidence: str
+    explanation: str
+    timestamp: str
+    alert: str | None = None
+    timestamp: str
+    confidence: str
+    reasons: List[str] = []   # 🔥 ADD THIS LINE
 
 class HistoryItem(BaseModel):
     id: str
