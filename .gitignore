@@ -1,26 +1,27 @@
-# Python
-__pycache__/
+# API Keys and Secrets (Recursive)
+**/.env
+**/*.json
+!**/firebase-example.json
+
+# Environments
+**/venv/
+**/env/
+**/.venv/
+
+# Python cache
+**/__pycache__/
 *.pyc
-.venv/
 
-# Jupyter
-.ipynb_checkpoints/
-
-# Models
-*.pkl
-
-# Environment files
-.env
+# Models & Large Files
+**/*.pkl
 
 # Flutter
 .dart_tool/
 build/
 
-# VS Code
+# IDEs
 .vscode/
-
-# Logs
-logs/
+.idea/
 
 # OS
 Thumbs.db
