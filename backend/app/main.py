@@ -1,27 +1,19 @@
-<<<<<<< Updated upstream
 import logging
 import time
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import analyze, history, risk, auth
-from app.config.settings import settings
-=======
-from fastapi import FastAPI
 from app.api.routes import auth, analyze, history, risk, token_routes, fraud_routes
 from app.config.database import connect_to_mongo, close_mongo_connection
 from app.config.settings import settings
-import logging
->>>>>>> Stashed changes
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-<<<<<<< Updated upstream
-    title="Cyber AI System API",
-    description="Backend API for AI-powered cyber safety and fraud detection",
+    title=settings.APP_NAME,
+    description="Backend API for Cyber AI System - AI-driven fraud and phishing detection.",
     version="1.0.0"
 )
 
@@ -50,21 +42,6 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-)
-
-# Include routers
-app.include_router(analyze.router, tags=["Analyze"])
-app.include_router(history.router, tags=["History"])
-app.include_router(risk.router, tags=["Risk"])
-app.include_router(auth.router, prefix="/auth", tags=["Auth"])
-
-@app.get("/", tags=["Health"])
-async def health_check():
-    return {"status": "healthy", "version": "1.0.0"}
-=======
-    title=settings.APP_NAME,
-    description="Backend API for Cyber AI System - AI-driven fraud and phishing detection.",
-    version="1.0.0"
 )
 
 # 🔄 Database Lifecycle
@@ -97,4 +74,3 @@ async def root():
         "docs": "/docs",
         "status": "online"
     }
->>>>>>> Stashed changes
