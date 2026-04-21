@@ -1,77 +1,24 @@
-from fastapi import APIRouter
-from urllib.parse import urlparse
-import dns.resolver
+from fastapi import APIRouter, Depends
+from app.schemas.request_schema import MessageAnalysisRequest
+from app.schemas.response_schema import AnalysisResponse
+from app.services import text_detection, url_detection, anomaly_detection
 
 router = APIRouter()
 
-
-# 🔥 FIXED DOMAIN CHECK
-def domain_exists(url: str) -> bool:
-    try:
-        # ✅ Ensure scheme (IMPORTANT FIX)
-        if not url.startswith("http"):
-            url = "http://" + url
-
-        domain = urlparse(url).netloc
-
-        print("🌐 Checking domain:", domain)
-
-        # 🔥 DNS lookup
-        dns.resolver.resolve(domain, "A")
-
-        print("✅ Domain exists")
-        return True
-
-    except Exception as e:
-        print("❌ Domain check failed:", str(e))
-        return False
-
-
-@router.post("/analyze-url")
-async def analyze_url(data: dict):
-
-    url = data.get("url", "").lower()
-    print("🔥 API HIT with URL:", url)
-
-    # 🚨 STEP 1: DOMAIN VALIDATION
-    if not domain_exists(url):
-        print("🚨 Invalid domain detected → Suspicious")
-        return {
-            "fraud_score": 60,
-            "risk": "suspicious"
-        }
-
-    # 🧠 STEP 2: BASE SCORE
-    score = 20
-
-    # 🔴 FRAUD PATTERNS
-    if any(x in url for x in [
-        "free-money", "win", "bonus", "click-now"
-    ]):
-        score = 85
-
-    # 🟡 SUSPICIOUS PATTERNS
-    elif (
-        any(x in url for x in [
-            "login", "verify", "account", "secure", "update"
-        ]) or
-        any(x in url for x in [
-            "bit.ly", "tinyurl", "t.co"
-        ])
-    ):
-        score = 45
-
-    # 🎯 FINAL CLASSIFICATION
-    if score >= 70:
-        risk = "fraud-high"
-    elif score >= 40:
-        risk = "suspicious"
-    else:
-        risk = "safe"
-
-    print("📊 FINAL SCORE:", score, "| RISK:", risk)
-
+@router.post("/analyze-message", response_model=AnalysisResponse)
+async def analyze_message(request: MessageAnalysisRequest):
+    """
+    Analyzes a message for fraud, phishing URLs, and anomalies.
+    """
+    # Placeholder logic
+    text_result = await text_detection.analyze_text(request.message)
+    url_result = await url_detection.check_urls(request.message)
+    anomaly_result = await anomaly_detection.check_anomaly(request.user_id, request.metadata)
+    
     return {
-        "fraud_score": score,
-        "risk": risk
+        "is_fraud": text_result["is_fraud"],
+        "fraud_score": text_result["score"],
+        "phishing_detected": url_result["detected"],
+        "anomaly_detected": anomaly_result["anomaly"],
+        "risk_level": "low" # placeholder aggregated risk
     }

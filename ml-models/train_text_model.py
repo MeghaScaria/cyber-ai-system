@@ -8,6 +8,9 @@ from sklearn.linear_model import LogisticRegression
 # Load dataset
 df = pd.read_csv("data/raw/spam_ham_india_combined_dataset.csv")
 
+# ✅ Handle missing values
+df = df.dropna(subset=["Message", "Category"])
+
 print(df.head())
 
 # ✅ Correct columns
