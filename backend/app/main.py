@@ -3,80 +3,91 @@ from pydantic import BaseModel
 from urllib.parse import urlparse
 import dns.resolver
 
-app = FastAPI()
+from app.services.url_ml_service import predict_url
+from app.api.routes.sms_routes import router as sms_router
+
+app = FastAPI(title="Fraud AI Shield API")
 
 
-# 🔹 Request Model
+# ==========================
+# 🔹 REQUEST MODEL
+# ==========================
 class URLRequest(BaseModel):
     url: str
 
 
-# 🔥 DOMAIN CHECK (FIXED)
+# ==========================
+# 🔐 TRUSTED DOMAINS
+# ==========================
+TRUSTED_DOMAINS = [
+    "google.com",
+    "youtube.com",
+    "facebook.com",
+    "amazon.in",
+    "microsoft.com",
+    "openai.com"
+]
+
+
+def is_trusted(url: str) -> bool:
+    domain = urlparse(url).netloc.replace("www.", "")
+    return any(td in domain for td in TRUSTED_DOMAINS)
+
+
+# ==========================
+# 🌐 DOMAIN CHECK
+# ==========================
 def domain_exists(url: str) -> bool:
     try:
         if not url.startswith("http"):
             url = "http://" + url
 
         domain = urlparse(url).netloc
-
-        print("🌐 Checking domain:", domain)
-
         dns.resolver.resolve(domain, "A")
-
-        print("✅ Domain exists")
         return True
-
-    except Exception as e:
-        print("❌ Domain not found:", e)
+    except:
         return False
 
 
-# 🔥 MAIN API
-@app.post("/analyze-url", tags=["Extension"])
+# ==========================
+# 🚀 URL ANALYSIS (FINAL)
+# ==========================
+@app.post("/analyze-url", tags=["URL"])
 async def analyze_url(data: URLRequest):
 
     url = data.url.lower()
     print("🔥 URL RECEIVED:", url)
 
-    # 🚨 STEP 1: DOMAIN VALIDATION
-    if not domain_exists(url):
+    # ✅ 1. TRUSTED DOMAIN
+    if is_trusted(url):
         return {
-            "fraud_score": 60,
-            "risk": "suspicious"
+            "fraud_score": 5,
+            "risk": "safe",
+            "reasons": ["Trusted domain"],
+            "explanation": "✅ This is a well-known trusted website.",
+            "status": "trusted"
         }
 
-    # 🧠 STEP 2: BASE SCORE
-    score = 20
+    # 🚨 2. INVALID DOMAIN (FIXED LOGIC)
+    if not domain_exists(url):
+        return {
+            "fraud_score": 20,
+            "risk": "suspicious",
+            "reasons": ["Domain unreachable or invalid"],
+            "explanation": "⚠ This domain could not be verified. It may be unsafe.",
+            "status": "invalid"
+        }
 
-    # 🔴 STRONG FRAUD (ONLY HIGH SIGNALS)
-    if any(x in url for x in [
-        "free-money", "win", "bonus", "click-now"
-    ]):
-        score = 85
+    # 🤖 3. ML + HYBRID SCORING
+    result = predict_url(url)
 
-    # 🟡 SUSPICIOUS (YELLOW ZONE)
-    elif any(x in url for x in [
-        "login", "verify", "bank", "secure", "update"
-    ]):
-        score = 45
+    # 🔥 Ensure status exists
+    result["status"] = "valid"
 
-    # 🟡 SHORT LINKS
-    elif any(x in url for x in [
-        "bit.ly", "tinyurl", "t.co"
-    ]):
-        score = 45
+    return result
 
-    # 🎯 FINAL CLASSIFICATION
-    if score >= 70:
-        risk = "fraud-high"
-    elif score >= 40:
-        risk = "suspicious"
-    else:
-        risk = "safe"
 
-    print("📊 FINAL:", score, risk)
-
-    return {
-        "fraud_score": score,
-        "risk": risk
-    }
+# ==========================
+# 🚀 REGISTER SMS ROUTES
+# ==========================
+app.include_router(sms_router)

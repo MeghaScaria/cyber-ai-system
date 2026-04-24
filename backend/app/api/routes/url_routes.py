@@ -8,9 +8,6 @@ import os
 
 router = APIRouter()
 
-# =========================
-# 🔥 LOAD MODEL
-# =========================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 MODEL_PATH = os.path.abspath(
@@ -20,24 +17,24 @@ MODEL_PATH = os.path.abspath(
 print("📦 Loading model from:", MODEL_PATH)
 model = joblib.load(MODEL_PATH)
 
-# =========================
-# 🔐 TRUSTED DOMAINS
-# =========================
+
+# ✅ TRUSTED DOMAINS
 TRUSTED_DOMAINS = [
-    "google.com", "youtube.com", "facebook.com",
-    "amazon.in", "microsoft.com", "openai.com"
+    "google.com",
+    "youtube.com",
+    "facebook.com",
+    "amazon.in",
+    "microsoft.com",
+    "openai.com"
 ]
 
-def is_trusted(url: str) -> bool:
-    try:
-        domain = urlparse(url).netloc.lower().replace("www.", "")
-        return any(domain == t or domain.endswith("." + t) for t in TRUSTED_DOMAINS)
-    except:
-        return False
 
-# =========================
+def is_trusted(url):
+    domain = urlparse(url).netloc.replace("www.", "")
+    return any(td in domain for td in TRUSTED_DOMAINS)
+
+
 # 🚀 FEATURE EXTRACTOR
-# =========================
 def extract_features(url: str):
 
     if not url.startswith("http"):
@@ -63,8 +60,6 @@ def extract_features(url: str):
         "prefix_suffix": int("-" in domain),
         "longest_word_path": max([len(w) for w in words_path] or [0]),
         "tld_in_subdomain": int(len(words_host) > 2),
-
-        # 🔥 EXTRA SIGNALS
         "phish_hints": int(any(w in url for w in [
             "login", "verify", "secure", "update", "account",
             "free", "win", "bonus", "claim", "reward"
@@ -74,51 +69,22 @@ def extract_features(url: str):
         "has_shortener": int(any(x in url for x in ["bit.ly", "tinyurl", "t.co"]))
     }
 
-# =========================
-# 🌐 DOMAIN CHECK
-# =========================
+
+# 🔥 DOMAIN CHECK
 def domain_exists(url: str) -> bool:
     try:
         if not url.startswith("http"):
             url = "http://" + url
+
         domain = urlparse(url).netloc
         dns.resolver.resolve(domain, "A")
         return True
     except:
         return False
 
-# =========================
-# 🧠 HYBRID SCORING ENGINE
-# =========================
-def compute_rule_score(features):
 
-    score = 0
-
-    if features["phish_hints"]:
-        score += 25
-
-    if features["has_shortener"]:
-        score += 20
-
-    if features["ip"]:
-        score += 30
-
-    if features["length_url"] > 80:
-        score += 10
-
-    if features["prefix_suffix"]:
-        score += 10
-
-    if not features["has_https"]:
-        score += 10
-
-    return min(score, 100)  # cap at 100
-
-# =========================
-# 🧠 REASONS
-# =========================
+# 🚀 REASONS
 def generate_reasons(features):
-
     reasons = []
 
     if features["has_shortener"]:
@@ -141,16 +107,15 @@ def generate_reasons(features):
 
     return reasons
 
-# =========================
+
 # 🚀 MAIN API
-# =========================
 @router.post("/analyze-url")
 async def analyze_url(data: dict):
 
     url = data.get("url", "").lower()
     print("🔥 API HIT:", url)
 
-    # 🔐 TRUSTED OVERRIDE
+    # ✅ TRUSTED FIRST
     if is_trusted(url):
         return {
             "fraud_score": 5,
@@ -159,53 +124,56 @@ async def analyze_url(data: dict):
             "explanation": "✅ This is a well-known trusted website."
         }
 
-    # 🚨 DOMAIN CHECK
+    # 🚨 INVALID DOMAIN (FIXED)
     if not domain_exists(url):
         return {
-            "fraud_score": 60,
+            "fraud_score": 20,   # 👈 reduced
             "risk": "suspicious",
-            "reasons": ["Domain does not exist"],
-            "explanation": "⚠ This domain appears invalid or unsafe."
+            "reasons": ["Domain unreachable or invalid"],
+            "explanation": "⚠ This domain could not be verified. It may be unsafe.",
+            "status": "invalid"   # 👈 NEW FLAG
         }
 
-    # 🔍 FEATURES
+    # 🚀 NORMAL FLOW
     features = extract_features(url)
     df = pd.DataFrame([features])
 
-    # 🤖 ML SCORE
-    ml_prob = model.predict_proba(df)[0][1]   # 0–1
-    ml_score = ml_prob * 100
+    prob = model.predict_proba(df)[0][1]
 
-    # 🧠 RULE SCORE
-    rule_score = compute_rule_score(features)
+    # 🔥 HYBRID BOOST
+    boost = 0
+    if features["has_shortener"]:
+        boost += 0.15
+    if features["phish_hints"]:
+        boost += 0.20
+    if not features["has_https"]:
+        boost += 0.10
 
-    # 🔥 HYBRID COMBINATION
-    final_score = int((ml_score * 0.7) + (rule_score * 0.3))
+    final_prob = min(prob + boost, 1.0)
 
-    # 🎯 CLASSIFICATION
-    if final_score >= 70:
+    score = int(final_prob * 100)
+
+    # 🚀 CLASSIFICATION
+    if final_prob >= 0.75:
         risk = "fraud-high"
-    elif final_score >= 40:
+    elif final_prob >= 0.40:
         risk = "suspicious"
     else:
         risk = "safe"
 
-    # 🧠 REASONS
     reasons = generate_reasons(features)
 
-    # 💬 EXPLANATION
     if risk == "fraud-high":
-        explanation = "🚨 High risk phishing detected based on multiple risk signals."
+        explanation = "🚨 High risk phishing or scam detected."
     elif risk == "suspicious":
-        explanation = "⚠ This URL shows suspicious patterns. Proceed carefully."
+        explanation = "⚠ This looks suspicious. Proceed carefully."
     else:
-        explanation = "✅ This appears safe based on current analysis."
-
-    print(f"📊 ML: {ml_score:.2f} | Rule: {rule_score} | Final: {final_score}")
+        explanation = "✅ This appears safe."
 
     return {
-        "fraud_score": final_score,
+        "fraud_score": score,
         "risk": risk,
         "reasons": reasons,
-        "explanation": explanation
+        "explanation": explanation,
+        "status": "valid"
     }

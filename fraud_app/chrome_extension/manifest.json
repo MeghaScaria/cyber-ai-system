@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Fraud AI Shield",
   "description": "AI-powered phishing and fraud detection for safer browsing",
-  "version": "1.0",
+  "version": "1.3",
 
   "action": {
     "default_popup": "popup.html",
@@ -15,22 +15,33 @@
   },
 
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
 
   "permissions": [
     "tabs",
     "activeTab",
-    "storage"
+    "storage",
+    "notifications"
   ],
 
   "host_permissions": [
-    "http://127.0.0.1:8000/*"
+    "http://127.0.0.1:8000/*",
+    "http://localhost:8000/*",
+    "<all_urls>"
   ],
 
   "web_accessible_resources": [
     {
-      "resources": ["warning.html"],
+      "resources": [
+        "warning.html",
+        "warning.js",
+        "history.html",
+        "history.js",
+        "styles.css",
+        "alert.mp3"
+      ],
       "matches": ["<all_urls>"]
     }
   ],
@@ -39,5 +50,9 @@
     "16": "icon.png",
     "48": "icon.png",
     "128": "icon.png"
+  },
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src http://127.0.0.1:8000 http://localhost:8000"
   }
 }
