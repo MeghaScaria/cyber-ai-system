@@ -1,76 +1,129 @@
-import logging
-import time
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import auth, analyze, history, risk, token_routes, fraud_routes
+from fastapi import FastAPI
+from pydantic import BaseModel
+from urllib.parse import urlparse
+import dns.resolver
+
+from app.api.routes.history import router as history_router
+
+from app.database.mongo import save_analysis_result
+
+from app.services.url_ml_service import predict_url
+from app.api.routes.sms_routes import router as sms_router
+
+
+from contextlib import asynccontextmanager
 from app.config.database import connect_to_mongo, close_mongo_connection
+
+#######
 from app.config.settings import settings
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await connect_to_mongo()
+    yield
+    await close_mongo_connection()
 
 app = FastAPI(
-    title=settings.APP_NAME,
-    description="Backend API for Cyber AI System - AI-driven fraud and phishing detection.",
-    version="1.0.0"
+    title="Fraud AI Shield API",
+    lifespan=lifespan
 )
+#########
 
-# Global Exception Handler
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Global exception: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={"message": "An internal server error occurred. Please try again later."},
+# ==========================
+# 🔹 REQUEST MODEL
+# ==========================
+class URLRequest(BaseModel):
+    url: str
+
+
+# ==========================
+# 🔐 TRUSTED DOMAINS
+# ==========================
+TRUSTED_DOMAINS = [
+    "google.com",
+    "youtube.com",
+    "facebook.com",
+    "amazon.in",
+    "microsoft.com",
+    "openai.com"
+]
+
+
+def is_trusted(url: str) -> bool:
+    domain = urlparse(url).netloc.replace("www.", "")
+    return any(td in domain for td in TRUSTED_DOMAINS)
+
+
+# ==========================
+# 🌐 DOMAIN CHECK
+# ==========================
+def domain_exists(url: str) -> bool:
+    try:
+        if not url.startswith("http"):
+            url = "http://" + url
+
+        domain = urlparse(url).netloc
+        dns.resolver.resolve(domain, "A")
+        return True
+    except:
+        return False
+
+
+# ==========================
+# 🚀 URL ANALYSIS (FINAL)
+# ==========================
+@app.post("/analyze-url", tags=["URL"])
+async def analyze_url(data: URLRequest):
+
+    url = data.url.lower()
+    print("🔥 URL RECEIVED:", url)
+
+    # ✅ TRUSTED DOMAIN
+    if is_trusted(url):
+
+        result = {
+            "fraud_score": 5,
+            "risk": "safe",
+            "reasons": ["Trusted domain"],
+            "explanation": "✅ This is a well-known trusted website.",
+            "status": "trusted"
+        }
+
+    # 🚨 INVALID DOMAIN
+    elif not domain_exists(url):
+
+        result = {
+            "fraud_score": 20,
+            "risk": "suspicious",
+            "reasons": ["Domain unreachable or invalid"],
+            "explanation": "⚠ This domain could not be verified. It may be unsafe.",
+            "status": "invalid"
+        }
+
+    # 🤖 ML ANALYSIS
+    else:
+
+        result = predict_url(url)
+
+        result["status"] = "valid"
+
+    # 💾 SAVE TO MONGODB
+    await save_analysis_result(
+        user_id="guest_user",
+        result={
+            "type": "url",
+            "content": url,
+            **result
+        }
     )
 
-# Request Logging Middleware
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    start_time = time.time()
-    response = await call_next(request)
-    process_time = time.time() - start_time
-    logger.info(f"path={request.url.path} method={request.method} duration={process_time:.4f}s status={response.status_code}")
-    return response
+    return result
 
-# Set all CORS enabled origins
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
-# 🔄 Database Lifecycle
-@app.on_event("startup")
-async def startup_db_client():
-    try:
-        await connect_to_mongo()
-        logger.info("Successfully connected to MongoDB")
-    except Exception as e:
-        logger.error(f"Failed to connect to MongoDB: {e}")
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    await close_mongo_connection()
-    logger.info("Successfully closed MongoDB connection")
-
-# 🛣️ Include Routers
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
-app.include_router(analyze.router, prefix="/api/v1/analyze", tags=["Analysis"])
-app.include_router(analyze.router, tags=["Legacy Support"]) # Compatibility for Chrome Extension
-app.include_router(history.router, prefix="/api/v1/history", tags=["User History"])
-app.include_router(risk.router, prefix="/api/v1/risk", tags=["Risk Management"])
-app.include_router(token_routes.router, prefix="/api/v1/tokens", tags=["Token Management"])
-app.include_router(fraud_routes.router, prefix="/api/v1/fraud", tags=["Fraud Analysis"])
-
-@app.get("/")
-async def root():
-    return {
-        "message": f"Welcome to {settings.APP_NAME} API",
-        "docs": "/docs",
-        "status": "online"
-    }
+# ==========================
+# 🚀 REGISTER SMS ROUTES
+# ==========================
+app.include_router(sms_router)
+app.include_router(history_router)

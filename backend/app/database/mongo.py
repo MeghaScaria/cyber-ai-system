@@ -1,17 +1,38 @@
+from datetime import datetime
+
 from app.config.database import get_database
+from app.database.collections import ANALYSIS_HISTORY
+
 
 async def save_analysis_result(user_id: str, result: dict):
-    """
-    Saves an analysis result to MongoDB.
-    """
+
     db = get_database()
-    # await db.analysis_history.insert_one({"user_id": user_id, **result})
-    pass
+
+    document = {
+        "user_id": user_id,
+        **result,
+        "timestamp": datetime.utcnow()
+    }
+
+    response = await db[ANALYSIS_HISTORY].insert_one(document)
+
+    return str(response.inserted_id)
+
 
 async def get_user_history(user_id: str):
-    """
-    Retrieves analysis history from MongoDB.
-    """
+
     db = get_database()
-    # cursor = db.analysis_history.find({"user_id": user_id})
-    return []
+
+    cursor = db[ANALYSIS_HISTORY].find(
+        {"user_id": user_id}
+    ).sort("timestamp", -1)
+
+    history = []
+
+    async for document in cursor:
+
+        document["_id"] = str(document["_id"])
+
+        history.append(document)
+
+    return history
