@@ -1,4 +1,4 @@
-import pickle
+import joblib
 import os
 import logging
 
@@ -7,8 +7,15 @@ logger = logging.getLogger(__name__)
 # 🔥 Load model paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Note: In production, these should be configurable via Settings
-model_path = os.path.join(BASE_DIR, "../../../ml-models/saved_models/text_model.pkl")
-vectorizer_path = os.path.join(BASE_DIR, "../../../ml-models/saved_models/vectorizer.pkl")
+model_path = os.path.join(
+    BASE_DIR,
+    "../../../ml-models/text_model/saved_models/text_model.pkl"
+)
+
+vectorizer_path = os.path.join(
+    BASE_DIR,
+    "../../../ml-models/text_model/saved_models/vectorizer.pkl"
+)
 
 # 🔥 Load model with fallback
 model = None
@@ -18,10 +25,8 @@ def load_ml_models():
     global model, vectorizer
     if os.path.exists(model_path) and os.path.exists(vectorizer_path):
         try:
-            with open(model_path, "rb") as f:
-                model = pickle.load(f)
-            with open(vectorizer_path, "rb") as f:
-                vectorizer = pickle.load(f)
+            model = joblib.load(model_path)
+            vectorizer = joblib.load(vectorizer_path)
             logger.info("✅ ML models loaded successfully.")
             return True
         except Exception as e:
@@ -32,8 +37,10 @@ def load_ml_models():
         return False
 
 # Attempt load on import
-load_ml_models()
 
+print("🚀 Attempting to load ML models...")
+load_ml_models()
+print("🚀 ML loading completed.")
 async def analyze_text(message: str):
     text = message.lower()
     reasons = []
