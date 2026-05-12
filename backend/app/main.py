@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from pydantic import BaseModel
+from fastapi import WebSocket, WebSocketDisconnect
+from app.services.websocket_manager import manager
 
 from app.config.database import (
     connect_to_mongo,
@@ -70,3 +72,14 @@ async def analyze_sms(data: SMSRequest):
 # ==========================
 app.include_router(history_router)
 app.include_router(fraud_router)
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+
+    try:
+        while True:
+            await websocket.receive_text()
+
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)

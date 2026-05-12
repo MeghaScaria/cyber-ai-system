@@ -38,9 +38,11 @@ def load_ml_models():
 
 # Attempt load on import
 
-print("🚀 Attempting to load ML models...")
+logger.info("🚀 Loading ML models...")
+
 load_ml_models()
-print("🚀 ML loading completed.")
+logger.info("✅ ML models loaded.")
+
 async def analyze_text(message: str):
     text = message.lower()
     reasons = []
