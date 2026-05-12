@@ -1,129 +1,72 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from pydantic import BaseModel
-from urllib.parse import urlparse
-import dns.resolver
 
-from app.api.routes.history import router as history_router
+from app.config.database import (
+    connect_to_mongo,
+    close_mongo_connection
+)
 
 from app.database.mongo import save_analysis_result
 
-from app.services.url_ml_service import predict_url
-from app.api.routes.sms_routes import router as sms_router
+from app.api.routes.history import router as history_router
+from app.api.routes.fraud_routes import router as fraud_router
 
-
-from contextlib import asynccontextmanager
-from app.config.database import connect_to_mongo, close_mongo_connection
-
-#######
-from app.config.settings import settings
-
+from app.services.text_detection import analyze_text
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+
     await connect_to_mongo()
+
     yield
+
     await close_mongo_connection()
+
 
 app = FastAPI(
     title="Fraud AI Shield API",
     lifespan=lifespan
 )
-#########
-
-# ==========================
-# 🔹 REQUEST MODEL
-# ==========================
-class URLRequest(BaseModel):
-    url: str
 
 
 # ==========================
-# 🔐 TRUSTED DOMAINS
+# REQUEST MODELS
 # ==========================
-TRUSTED_DOMAINS = [
-    "google.com",
-    "youtube.com",
-    "facebook.com",
-    "amazon.in",
-    "microsoft.com",
-    "openai.com"
-]
-
-
-def is_trusted(url: str) -> bool:
-    domain = urlparse(url).netloc.replace("www.", "")
-    return any(td in domain for td in TRUSTED_DOMAINS)
+class SMSRequest(BaseModel):
+    message: str
 
 
 # ==========================
-# 🌐 DOMAIN CHECK
+# SMS ANALYSIS
 # ==========================
-def domain_exists(url: str) -> bool:
-    try:
-        if not url.startswith("http"):
-            url = "http://" + url
+@app.post("/analyze-sms", tags=["SMS"])
+async def analyze_sms(data: SMSRequest):
 
-        domain = urlparse(url).netloc
-        dns.resolver.resolve(domain, "A")
-        return True
-    except:
-        return False
+    result = await analyze_text(data.message)
 
+    response = {
+        "fraud_score": result["score"],
+        "risk": "fraud-high" if result["is_fraud"] else "safe",
+        "reasons": result["reasons"]
+    }
 
-# ==========================
-# 🚀 URL ANALYSIS (FINAL)
-# ==========================
-@app.post("/analyze-url", tags=["URL"])
-async def analyze_url(data: URLRequest):
-
-    url = data.url.lower()
-    print("🔥 URL RECEIVED:", url)
-
-    # ✅ TRUSTED DOMAIN
-    if is_trusted(url):
-
-        result = {
-            "fraud_score": 5,
-            "risk": "safe",
-            "reasons": ["Trusted domain"],
-            "explanation": "✅ This is a well-known trusted website.",
-            "status": "trusted"
-        }
-
-    # 🚨 INVALID DOMAIN
-    elif not domain_exists(url):
-
-        result = {
-            "fraud_score": 20,
-            "risk": "suspicious",
-            "reasons": ["Domain unreachable or invalid"],
-            "explanation": "⚠ This domain could not be verified. It may be unsafe.",
-            "status": "invalid"
-        }
-
-    # 🤖 ML ANALYSIS
-    else:
-
-        result = predict_url(url)
-
-        result["status"] = "valid"
-
-    # 💾 SAVE TO MONGODB
+    # SAVE TO DATABASE
     await save_analysis_result(
         user_id="guest_user",
         result={
-            "type": "url",
-            "content": url,
-            **result
+            "type": "sms",
+            "content": data.message,
+            **response
         }
     )
 
-    return result
+    return response
 
 
 # ==========================
-# 🚀 REGISTER SMS ROUTES
+# REGISTER ROUTES
 # ==========================
-app.include_router(sms_router)
 app.include_router(history_router)
+app.include_router(fraud_router)
