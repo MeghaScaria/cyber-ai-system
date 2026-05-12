@@ -27,7 +27,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     SocketService.connect((data) {
       if (!mounted) return;
 
-      final score = (data["fraud_score"] ?? 0).toDouble();
+      // 🔥 extract nested websocket payload
+      final payload = data["data"];
+
+      if (payload == null) return;
+
+      final score = (payload["score"] ?? 0).toDouble();
 
       setState(() {
         fraudData.add(score);
@@ -37,7 +42,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         }
 
         totalScans++;
-        if (score > 70) fraudCount++;
+
+        if (score > 70) {
+          fraudCount++;
+        }
       });
     });
   }

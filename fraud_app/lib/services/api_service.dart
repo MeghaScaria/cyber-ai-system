@@ -5,12 +5,12 @@ import '../models/analysis_model.dart';
 
 class ApiService {
   // 🔥 CHANGE THIS TO YOUR BACKEND IP
-  static const String baseUrl = "http://192.168.0.189:8000";
+  static const String baseUrl = "http://10.166.204.223:8000";
 
   // 🚀 ANALYZE MESSAGE API
   static Future<AnalysisModel?> analyzeMessage(String message) async {
     try {
-      final url = Uri.parse("$baseUrl/analyze-message");
+      final url = Uri.parse("$baseUrl/analyze-sms");
 
       final response = await http.post(
         url,
