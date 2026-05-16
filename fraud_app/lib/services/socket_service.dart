@@ -8,7 +8,7 @@ class SocketService {
   static void connect(Function(Map<String, dynamic>) onMessage) {
     try {
       _channel = WebSocketChannel.connect(
-        Uri.parse("ws://192.168.0.189:8000/ws"), // ✅ your IP
+        Uri.parse("ws://10.166.204.223:8000/ws"), // ✅ your IP
       );
 
       print("✅ WebSocket connected");

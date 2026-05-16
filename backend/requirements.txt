@@ -13,3 +13,5 @@ python-multipart
 python-jose[cryptography]
 passlib[bcrypt]
 pytest
+motor
+python-dotenv

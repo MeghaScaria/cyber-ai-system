@@ -1,0 +1,20 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+venv/
+env/
+.venv/
+
+# Configuration
+.env
+
+# Firebase Keys
+*.json
+!firebase-example.json
+
+# IDEs
+.vscode/
+.idea/

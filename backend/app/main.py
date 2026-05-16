@@ -1,93 +1,97 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from pydantic import BaseModel
-from urllib.parse import urlparse
-import dns.resolver
+from fastapi import WebSocket, WebSocketDisconnect
+from app.services.websocket_manager import manager
+from fastapi.middleware.cors import CORSMiddleware
 
-from app.services.url_ml_service import predict_url
-from app.api.routes.sms_routes import router as sms_router
+from app.config.database import (
+    connect_to_mongo,
+    close_mongo_connection
+)
 
-app = FastAPI(title="Fraud AI Shield API")
+from app.database.mongo import save_analysis_result
+
+from app.api.routes.history import router as history_router
+from app.api.routes.fraud_routes import router as fraud_router
+
+from app.services.text_detection import analyze_text
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+
+    await connect_to_mongo()
+
+    yield
+
+    await close_mongo_connection()
+
+
+app = FastAPI(
+    title="Fraud AI Shield API",
+    lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ==========================
+# REQUEST MODELS
+# ==========================
+class SMSRequest(BaseModel):
+    message: str
 
 
 # ==========================
-# 🔹 REQUEST MODEL
+# SMS ANALYSIS
 # ==========================
-class URLRequest(BaseModel):
-    url: str
+@app.post("/analyze-sms", tags=["SMS"])
+async def analyze_sms(data: SMSRequest):
+
+    result = await analyze_text(data.message)
+
+    response = {
+        "fraud_score": result["score"],
+        "risk": "fraud-high" if result["is_fraud"] else "safe",
+        "reasons": result["reasons"]
+    }
+
+    # SAVE TO DATABASE
+    await save_analysis_result(
+        user_id="guest_user",
+        result={
+            "type": "sms",
+            "content": data.message,
+            **response
+        }
+    )
+    
+    await manager.broadcast({
+        "type": "fraud_update",
+        "data": result
+    })
+    return response
 
 
 # ==========================
-# 🔐 TRUSTED DOMAINS
+# REGISTER ROUTES
 # ==========================
-TRUSTED_DOMAINS = [
-    "google.com",
-    "youtube.com",
-    "facebook.com",
-    "amazon.in",
-    "microsoft.com",
-    "openai.com"
-]
+app.include_router(history_router)
+app.include_router(fraud_router)
 
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
 
-def is_trusted(url: str) -> bool:
-    domain = urlparse(url).netloc.replace("www.", "")
-    return any(td in domain for td in TRUSTED_DOMAINS)
-
-
-# ==========================
-# 🌐 DOMAIN CHECK
-# ==========================
-def domain_exists(url: str) -> bool:
     try:
-        if not url.startswith("http"):
-            url = "http://" + url
+        while True:
+            await websocket.receive_text()
 
-        domain = urlparse(url).netloc
-        dns.resolver.resolve(domain, "A")
-        return True
-    except:
-        return False
-
-
-# ==========================
-# 🚀 URL ANALYSIS (FINAL)
-# ==========================
-@app.post("/analyze-url", tags=["URL"])
-async def analyze_url(data: URLRequest):
-
-    url = data.url.lower()
-    print("🔥 URL RECEIVED:", url)
-
-    # ✅ 1. TRUSTED DOMAIN
-    if is_trusted(url):
-        return {
-            "fraud_score": 5,
-            "risk": "safe",
-            "reasons": ["Trusted domain"],
-            "explanation": "✅ This is a well-known trusted website.",
-            "status": "trusted"
-        }
-
-    # 🚨 2. INVALID DOMAIN (FIXED LOGIC)
-    if not domain_exists(url):
-        return {
-            "fraud_score": 20,
-            "risk": "suspicious",
-            "reasons": ["Domain unreachable or invalid"],
-            "explanation": "⚠ This domain could not be verified. It may be unsafe.",
-            "status": "invalid"
-        }
-
-    # 🤖 3. ML + HYBRID SCORING
-    result = predict_url(url)
-
-    # 🔥 Ensure status exists
-    result["status"] = "valid"
-
-    return result
-
-
-# ==========================
-# 🚀 REGISTER SMS ROUTES
-# ==========================
-app.include_router(sms_router)
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)

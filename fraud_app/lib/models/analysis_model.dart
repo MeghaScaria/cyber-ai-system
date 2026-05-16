@@ -26,13 +26,13 @@ class AnalysisModel {
   // 🔥 Convert JSON → Dart Object
   factory AnalysisModel.fromJson(Map<String, dynamic> json) {
     return AnalysisModel(
-      isFraud: json["is_fraud"] ?? false,
+      isFraud: (json["risk"] ?? "") != "safe",
       fraudScore: (json["fraud_score"] ?? 0).toDouble(),
       phishingDetected: json["phishing_detected"] ?? false,
       anomalyDetected: json["anomaly_detected"] ?? false,
-      riskLevel: json["risk_level"] ?? "unknown",
-      confidence: json["confidence"] ?? "low",
-      explanation: json["explanation"] ?? "",
+      riskLevel: json["risk"] ?? "unknown",
+      confidence: "medium",
+      explanation: json["reasons"]?.join(", ") ?? "",
       alert: json["alert"],
       timestamp: json["timestamp"] ?? "",
       reasons: List<String>.from(json["reasons"] ?? []),

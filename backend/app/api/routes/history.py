@@ -1,13 +1,15 @@
-from fastapi import APIRouter, Depends
-from typing import List
-from app.schemas.response_schema import HistoryItem
+from fastapi import APIRouter
+from app.database.mongo import get_user_history
 
 router = APIRouter()
 
-@router.get("/history", response_model=List[HistoryItem])
-async def get_history(user_id: str):
-    """
-    Retrieves analysis history for a specific user.
-    """
-    # Placeholder logic
-    return []
+@router.get("/history/{user_id}")
+async def fetch_user_history(user_id: str):
+
+    history = await get_user_history(user_id)
+
+    return {
+        "user_id": user_id,
+        "total_records": len(history),
+        "history": history
+    }

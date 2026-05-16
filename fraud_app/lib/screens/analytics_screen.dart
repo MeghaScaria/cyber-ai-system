@@ -5,6 +5,7 @@ import 'package:fraud_ai_shield_app/models/history_model.dart';
 import 'package:fraud_ai_shield_app/widgets/animated_background.dart';
 import 'package:fraud_ai_shield_app/widgets/premium_glass_card.dart';
 import 'package:fraud_ai_shield_app/widgets/fraud_chart.dart';
+import 'package:fraud_ai_shield_app/services/realtime_service.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -17,30 +18,20 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   List<double> fraudData = [];
   int totalScans = 0;
   int fraudCount = 0;
-
+  double detectionRate = 0;
   @override
-  void initState() {
-    super.initState();
-    loadAnalytics();
+  @override
+void initState() {
+  super.initState();
 
-    // 🔥 realtime socket update
-    SocketService.connect((data) {
-      if (!mounted) return;
+  loadAnalytics();
 
-      final score = (data["fraud_score"] ?? 0).toDouble();
-
-      setState(() {
-        fraudData.add(score);
-
-        if (fraudData.length > 10) {
-          fraudData.removeAt(0);
-        }
-
-        totalScans++;
-        if (score > 70) fraudCount++;
-      });
-    });
-  }
+  RealtimeService.refreshNotifier.addListener(() {
+    if (mounted) {
+      loadAnalytics();
+    }
+  });
+}
 
   Future<void> loadAnalytics() async {
     final history = await HistoryService.getHistory();
@@ -49,6 +40,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       totalScans = history.length;
 
       fraudCount = history.where((item) => item.score > 70).length;
+      detectionRate = totalScans == 0
+        ? 0
+        : (fraudCount / totalScans) * 100;
 
       fraudData = history
           .map((e) => e.score)
@@ -62,10 +56,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   @override
-  void dispose() {
-    SocketService.disconnect();
-    super.dispose();
-  }
+  
 
   @override
   Widget build(BuildContext context) {
@@ -141,16 +132,43 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   // 🔹 STATS
   Widget _buildStatsRow() {
-    return Row(
-      children: [
-        Expanded(child: _statCard("Total Scans", totalScans.toString())),
 
-        const SizedBox(width: 12),
+  return Column(
+    children: [
 
-        Expanded(child: _statCard("Frauds", fraudCount.toString())),
-      ],
-    );
-  }
+      Row(
+        children: [
+
+          Expanded(
+            child: _statCard(
+              "Total Scans",
+              totalScans.toString(),
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          Expanded(
+            child: _statCard(
+              "Frauds",
+              fraudCount.toString(),
+            ),
+          ),
+
+        ],
+      ),
+
+      const SizedBox(height: 12),
+
+      _wideStatCard(
+        "Detection Rate",
+        "${detectionRate.toStringAsFixed(1)}%",
+      ),
+      
+
+    ],
+  );
+ }
 
   Widget _statCard(String title, String value) {
     return PremiumGlassCard(
@@ -179,6 +197,49 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
+  Widget _wideStatCard(String title, String value) {
+
+  return PremiumGlassCard(
+    child: Column(
+      children: [
+
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.orangeAccent,
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+          ),
+        ),
+
+      ],
+    ),
+  );
+  }
+
+  Color _severityColor(double score) {
+
+  if (score >= 70) {
+    return Colors.redAccent;
+  }
+
+  if (score >= 40) {
+    return Colors.orangeAccent;
+  }
+
+  return Colors.greenAccent;
+ }
+
   // 🔹 RECENT LOGS
   Widget _buildLogs() {
     return FutureBuilder<List<HistoryModel>>(
@@ -197,44 +258,110 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              "Recent Activity",
+              "Live Threat Feed",
               style: TextStyle(color: Colors.white),
             ),
 
             const SizedBox(height: 8),
 
-            ...history.map((item) => _logItem(
-                  item.message,
-                  item.score > 70,
-                )),
+            ...history.map((item) => _logItem(item)),
           ],
         );
       },
     );
   }
 
-  Widget _logItem(String text, bool fraud) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: PremiumGlassCard(
-        child: Row(
-          children: [
-            Icon(
-              fraud ? Icons.warning : Icons.check_circle,
-              color: fraud ? Colors.redAccent : Colors.greenAccent,
-            ),
+  Widget _logItem(HistoryModel item) {
 
-            const SizedBox(width: 12),
+  final Color severityColor =
+      _severityColor(item.score);
 
-            Expanded(
-              child: Text(
-                text,
-                style: const TextStyle(color: Colors.white),
-              ),
+  final String severityLabel =
+      item.score >= 70
+          ? "HIGH RISK"
+          : item.score >= 40
+              ? "SUSPICIOUS"
+              : "SAFE";
+
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+
+    child: PremiumGlassCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+
+          Icon(
+            item.score >= 70
+                ? Icons.warning
+                : item.score >= 40
+                    ? Icons.error_outline
+                    : Icons.check_circle,
+
+            color: severityColor,
+            size: 28,
+          ),
+
+          const SizedBox(width: 12),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+
+              children: [
+
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+
+                  decoration: BoxDecoration(
+                    color: severityColor.withOpacity(0.15),
+
+                    borderRadius:
+                        BorderRadius.circular(8),
+                  ),
+
+                  child: Text(
+                    severityLabel,
+
+                    style: TextStyle(
+                      color: severityColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                Text(
+                  item.message,
+
+                  style: const TextStyle(
+                    color: Colors.white,
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                Text(
+                  "${item.score.toInt()}% risk",
+
+                  style: TextStyle(
+                    color: severityColor,
+                    fontSize: 12,
+                  ),
+                ),
+
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
+    ),
+  );
   }
 }

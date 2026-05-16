@@ -1,17 +1,30 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from app.config.database import get_database
 
 router = APIRouter()
 
-# Temporary storage (later DB)
-user_tokens = {}
-
 @router.post("/save-token")
-def save_token(data: dict):
+async def save_token(data: dict):
+    """
+    Saves or updates a user's device token for push notifications in MongoDB.
+    """
     user_id = data.get("user_id")
     token = data.get("device_token")
 
-    user_tokens[user_id] = token
+    if not user_id or not token:
+        raise HTTPException(status_code=400, detail="user_id and device_token are required")
 
-    print(f"🔥 Saved token for {user_id}: {token}")
+    db = get_database()
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database connection not available")
 
-    return {"status": "token saved"}
+    try:
+        # Upsert: Update if exists, insert if not
+        await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {"device_token": token}},
+            upsert=True
+        )
+        return {"status": "success", "message": f"Token saved for user {user_id}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

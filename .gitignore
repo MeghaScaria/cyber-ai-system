@@ -1,67 +1,28 @@
-# =========================
-# 🔥 Python
-# =========================
-__pycache__/
+# API Keys and Secrets (Recursive)
+**/.env
+**/*.json
+!**/firebase-example.json
+
+# Environments
+**/venv/
+**/env/
+**/.venv/
+
+# Python cache
+**/__pycache__/
 *.pyc
-*.pyo
-*.pyd
 
-venv/
-.venv/
+# Models & Large Files
+**/*.pkl
 
-# =========================
-# 🔥 Jupyter
-# =========================
-.ipynb_checkpoints/
-
-# =========================
-# 🔥 Models
-# =========================
-*.pkl
-
-# =========================
-# 🔥 Environment
-# =========================
-*.env
-
-# =========================
-# 🔥 Dataset
-# =========================
-data/
-*.csv
-
-# =========================
-# 🔥 Logs
-# =========================
-logs/
-*.log
-
-# =========================
-# 🔥 IDE
-# =========================
-.vscode/
-.idea/
-
-# =========================
-# 🔥 OS
-# =========================
-Thumbs.db
-.DS_Store
-
-# =========================
-# 🔥 Firebase / Secrets
-# =========================
-backend/app/firebase_key.json
-mobile_app/android/app/google-services.json
-fraud_app/android/app/google-services.json
-
-# =========================
-# 🔥 Build / Flutter
-# =========================
+# Flutter
 .dart_tool/
 build/
 
-# =========================
-# 🔥 Chrome Extension
-# =========================
-*.crx
+# IDEs
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
