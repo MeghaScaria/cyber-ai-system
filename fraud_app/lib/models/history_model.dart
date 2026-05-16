@@ -1,4 +1,5 @@
 class HistoryModel {
+
   final String message;
   final double score;
   final String result;
@@ -11,19 +12,19 @@ class HistoryModel {
     required this.time,
   });
 
-  Map<String, dynamic> toJson() => {
-        "message": message,
-        "score": score,
-        "result": result,
-        "time": time,
-      };
+  // 🔥 FROM FASTAPI BACKEND
+  factory HistoryModel.fromBackendJson(Map<String, dynamic> json) {
 
-  factory HistoryModel.fromJson(Map<String, dynamic> json) {
     return HistoryModel(
-      message: json["message"],
-      score: json["score"],
-      result: json["result"],
-      time: json["time"],
+
+      message: json["content"] ?? "",
+
+      score: (json["fraud_score"] ?? 0).toDouble(),
+
+      result: json["risk"] ?? "unknown",
+
+      time: json["timestamp"] ?? "",
+
     );
   }
 }

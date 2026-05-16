@@ -3,6 +3,7 @@ import 'package:fraud_ai_shield_app/services/history_service.dart';
 import 'package:fraud_ai_shield_app/models/history_model.dart';
 import 'package:fraud_ai_shield_app/widgets/animated_background.dart';
 import 'package:fraud_ai_shield_app/widgets/premium_glass_card.dart';
+import 'package:fraud_ai_shield_app/services/realtime_service.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -14,10 +15,18 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   List<HistoryModel> historyList = [];
 
+
   @override
   void initState() {
     super.initState();
+
     loadHistory();
+
+    RealtimeService.refreshNotifier.addListener(() {
+      if (mounted) {
+        loadHistory();
+      }
+    });
   }
 
   Future<void> loadHistory() async {

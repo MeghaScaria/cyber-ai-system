@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:fraud_ai_shield_app/services/socket_service.dart';
+import 'package:fraud_ai_shield_app/services/realtime_service.dart';
+
 // 👉 Import your screens
 import 'analyze_screen.dart';
 import 'analytics_screen.dart';
@@ -15,6 +18,23 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
+  
+  @override
+  void initState() {
+    super.initState();
+
+    SocketService.connect((data) {
+      print("🔥 GLOBAL REALTIME UPDATE");
+
+      RealtimeService.notifyUpdate();
+    });
+  }
+
+  @override
+  void dispose() {
+    SocketService.disconnect();
+    super.dispose();
+  }
 
   // 👉 Screens list
   final List<Widget> _screens = const [

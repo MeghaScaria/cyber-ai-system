@@ -34,4 +34,40 @@ class ApiService {
       return null;
     }
   }
+  
+  // 🚀 ANALYZE URL API
+static Future<AnalysisModel?> analyzeUrl(String urlInput) async {
+
+  try {
+
+    final url = Uri.parse("$baseUrl/analyze-url");
+
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "url": urlInput
+      }),
+    );
+
+    if (response.statusCode == 200) {
+
+      final data = jsonDecode(response.body);
+
+      return AnalysisModel.fromJson(data);
+
+    } else {
+
+      print("❌ URL API Error: ${response.statusCode}");
+      return null;
+
+    }
+
+  } catch (e) {
+
+    print("❌ URL Exception: $e");
+    return null;
+
+    }
+  }
 }

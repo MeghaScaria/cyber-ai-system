@@ -24,7 +24,7 @@ dependencies:
   fl_chart: ^0.68.0
 
   # 💾 Local storage
-  shared_preferences: ^2.2.2
+
 
   # 🔄 WebSocket
   web_socket_channel: ^2.4.0

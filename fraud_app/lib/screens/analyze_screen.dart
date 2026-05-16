@@ -12,6 +12,9 @@ import 'package:fraud_ai_shield_app/widgets/premium_glass_card.dart';
 import 'package:fraud_ai_shield_app/services/history_service.dart';
 import 'package:fraud_ai_shield_app/models/history_model.dart';
 
+
+
+
 class AnalyzeScreen extends StatefulWidget {
   const AnalyzeScreen({super.key});
 
@@ -21,6 +24,7 @@ class AnalyzeScreen extends StatefulWidget {
 
 class _AnalyzeScreenState extends State<AnalyzeScreen> {
   bool _isLoading = false;
+  bool isUrlMode = false;
 
   String result = "";
   double fraudScore = 0;
@@ -82,14 +86,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
       });
 
       // 🔥 SAVE HISTORY ADDED HERE
-      await HistoryService.saveHistory(
-        HistoryModel(
-          message: messageController.text,
-          score: fraudScore, // Passing the double score directly
-          result: result,
-          time: DateTime.now().toString(),
-        ),
-      );
+    
     } else {
       setState(() {
         result = "Server error";
@@ -114,6 +111,9 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
             child: Column(
               children: [
                 _buildHeader(),
+                const SizedBox(height: 16),
+
+                _buildModeSwitcher(),
                 const SizedBox(height: 16),
 
                 _buildInputCard(),
@@ -152,18 +152,79 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
     );
   }
 
+  Widget _buildModeSwitcher() {
+
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+
+      _modeButton("SMS", false),
+
+      const SizedBox(width: 12),
+
+      _modeButton("URL", true),
+
+    ],
+  );
+}
+
+Widget _modeButton(String text, bool urlMode) {
+
+  final bool active = isUrlMode == urlMode;
+
+  return GestureDetector(
+    onTap: () {
+
+      setState(() {
+        isUrlMode = urlMode;
+        result = "";
+        fraudScore = 0;
+        messageController.clear();
+      });
+
+    },
+
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+
+      padding: const EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: 10,
+      ),
+
+      decoration: BoxDecoration(
+        color: active
+            ? Colors.blueAccent
+            : Colors.white.withOpacity(0.08),
+
+        borderRadius: BorderRadius.circular(12),
+      ),
+
+      child: Text(
+        text,
+        style: TextStyle(
+          color: active ? Colors.white : Colors.white70,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    ),
+    );
+  }
+
   // 🔹 INPUT CARD
   Widget _buildInputCard() {
     return _card(
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Enter Message", style: TextStyle(color: Colors.white)),
+          Text(isUrlMode ? "Enter URL" : "Enter Message", style: TextStyle(color: Colors.white)),
           const SizedBox(height: 8),
 
           AppInputField(
             controller: messageController,
-            hint: "Enter suspicious message...",
+            hint: isUrlMode
+                ? "https://example.com"
+                : "Enter suspicious message...",
             maxLines: 3,
             icon: Icons.message,
           ),

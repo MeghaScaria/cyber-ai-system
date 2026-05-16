@@ -1,37 +1,44 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+
 import '../models/history_model.dart';
 
 class HistoryService {
-  static const String key = "fraud_history";
 
-  // 🔥 SAVE
-  static Future<void> saveHistory(HistoryModel item) async {
-    final prefs = await SharedPreferences.getInstance();
+  // 🔥 CHANGE THIS TO YOUR CURRENT BACKEND IP
+  static const String baseUrl = "http://10.166.204.223:8000";
 
-    List<String> history = prefs.getStringList(key) ?? [];
-
-    history.add(jsonEncode(item.toJson()));
-
-    await prefs.setStringList(key, history);
-  }
-
-  // 🔥 GET ALL
+  // 🔥 FETCH HISTORY FROM FASTAPI
   static Future<List<HistoryModel>> getHistory() async {
-    final prefs = await SharedPreferences.getInstance();
 
-    List<String> history = prefs.getStringList(key) ?? [];
+    try {
 
-    return history
-        .map((item) => HistoryModel.fromJson(jsonDecode(item)))
-        .toList()
-        .reversed
-        .toList(); // latest first
-  }
+      final response = await http.get(
+        Uri.parse("$baseUrl/history/guest_user"),
+      );
 
-  // 🔥 CLEAR (optional)
-  static Future<void> clearHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(key);
+      if (response.statusCode == 200) {
+
+        final data = jsonDecode(response.body);
+
+        final List history = data["history"];
+
+        return history
+            .map((item) => HistoryModel.fromBackendJson(item))
+            .toList();
+
+      } else {
+
+        print("❌ Failed to load history");
+        return [];
+
+      }
+
+    } catch (e) {
+
+      print("❌ History Exception: $e");
+      return [];
+
+    }
   }
 }
