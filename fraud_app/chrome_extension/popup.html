@@ -21,7 +21,7 @@
     <!-- 🔥 TITLE -->
     <h2 class="title">Fraud AI Shield</h2>
 
-    <!-- 🔘 SCAN BUTTON -->
+    <!-- 🔘 URL SCAN BUTTON -->
     <button id="checkBtn" class="scan-btn">
       🔍 Scan Website
     </button>
@@ -53,7 +53,32 @@
         Risk Score: --%
       </p>
 
+      <!-- 🚨 EXPLANATION -->
+      <p id="explanationText" class="explanation"></p>
+
+      <!-- 📌 REASONS -->
+      <ul id="reasonsList" class="reasons"></ul>
+
     </div>
+
+    <!-- 📩 SMS ANALYZER -->
+    <div class="sms-box">
+
+      <textarea id="smsInput" placeholder="Paste SMS message here..."></textarea>
+
+      <button id="smsBtn" class="scan-btn">
+        📩 Analyze SMS
+      </button>
+
+      <p id="smsStatus" class="status"></p>
+      <p id="smsScore" class="score"></p>
+
+    </div>
+
+    <!-- 📊 HISTORY BUTTON -->
+    <button id="openHistory" class="history-btn">
+      📊 View History
+    </button>
 
   </div>
 

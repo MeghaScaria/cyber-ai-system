@@ -1,16 +1,18 @@
-// 🚀 Fraud AI Shield - Background Service Worker (FINAL FIXED)
+// 🚀 Fraud AI Shield - Background Service Worker (FINAL STABLE VERSION)
 
-// 🔥 Debounce timer
 let debounceTimer;
+let isAnalyzing = false;   // 🔒 prevent multiple scans
 
 
-// 🚀 AUTO SCAN ON TAB SWITCH
+// ==========================
+// 🚀 TAB SWITCH AUTO SCAN
+// ==========================
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   try {
     const tab = await chrome.tabs.get(activeInfo.tabId);
 
     if (tab?.url && tab.url.startsWith("http")) {
-      debounceAnalyze(tab.url);
+      debounceAnalyze(activeInfo.tabId, tab.url);
     }
   } catch (err) {
     console.log("❌ Tab activation error:", err);
@@ -18,60 +20,69 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 });
 
 
-// 🚀 AUTO SCAN ON PAGE LOAD
+// ==========================
+// 🚀 PAGE LOAD AUTO SCAN
+// ==========================
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
   if (changeInfo.status === "complete" && tab?.url) {
 
+    // 🚫 avoid extension page loop
+    if (tab.url.includes("warning.html")) return;
+
     console.log("🌐 Page Loaded:", tab.url);
 
-    // 🚨 FIX: Detect browser error pages (NXDOMAIN)
+    // 🚨 browser error page
     if (
       tab.title?.includes("can't be reached") ||
       tab.url.includes("chrome-error")
     ) {
 
-      console.log("🚨 Browser error detected → Suspicious");
-
       const errorData = {
-        fraud_score: 60,
-        risk: "suspicious"
+        fraud_score: 20,
+        risk: "suspicious",
+        reasons: ["Invalid or unreachable domain"],
+        explanation: "⚠ This domain could not be reached. It may be unsafe."
       };
 
-      chrome.storage.local.set({ scanResult: errorData });
+      chrome.storage.local.set({
+        scanResult: errorData,
+        originalUrl: tab.url
+      });
+
+      saveHistory(tab.url, errorData);
       return;
     }
 
-    if (tab.url.startsWith("http")) {
-      debounceAnalyze(tab.url);
-    }
+    debounceAnalyze(tabId, tab.url);
   }
 });
 
 
-// 🚀 POPUP BUTTON REQUEST
+// ==========================
+// 🚀 POPUP REQUEST HANDLER
+// ==========================
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.type === "CHECK_URL") {
 
-    console.log("🟢 Popup requested scan:", request.url);
-
-    analyzeUrl(request.url)
-      .then((data) => {
-        sendResponse({ success: true, data });
-      })
-      .catch((err) => {
-        console.error("❌ API Error:", err);
-        sendResponse({ success: false });
-      });
+    analyzeUrl(request.url, null)
+      .then((data) => sendResponse({ success: true, data }))
+      .catch(() => sendResponse({ success: false }));
 
     return true;
   }
 });
 
 
+// ==========================
 // 🚀 MAIN ANALYSIS FUNCTION
-async function analyzeUrl(url) {
+// ==========================
+async function analyzeUrl(url, tabId = null) {
+
+  // 🔒 prevent duplicate execution
+  if (isAnalyzing) return;
+  isAnalyzing = true;
 
   try {
     console.log("🔍 Analyzing:", url);
@@ -86,62 +97,105 @@ async function analyzeUrl(url) {
 
     const data = await response.json();
 
-    console.log("✅ API Response:", data);
-
-    // 🔥 NORMALIZE DATA
-    const score = data.fraud_score || 0;
-
-    let risk = data.risk;
-
-    if (!risk) {
-      if (score > 70) risk = "fraud-high";
-      else if (score > 40) risk = "suspicious";
-      else risk = "safe";
-    }
-
     const finalData = {
-      fraud_score: score,
-      risk: risk
+      fraud_score: data.fraud_score || 0,
+      risk: data.risk || "safe",
+      reasons: data.reasons || [],
+      explanation: data.explanation || "",
+      status: data.status || "valid"
     };
 
-    // 🔥 STORE RESULT
-    chrome.storage.local.set({ scanResult: finalData });
+    console.log("📊 FINAL RESULT:", finalData);
 
-    // 🚫 BLOCK FRAUD SITES ONLY
-    if (risk === "fraud-high") {
+    // ==========================
+    // 🔥 CRITICAL FIX: WAIT FOR STORAGE
+    // ==========================
+    await new Promise((resolve) => {
+      chrome.storage.local.set({
+        scanResult: finalData,
+        originalUrl: url
+      }, resolve);
+    });
 
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]?.id) {
-          chrome.tabs.update(tabs[0].id, {
-            url: chrome.runtime.getURL("warning.html")
-          });
-        }
+    console.log("💾 DATA STORED SUCCESSFULLY");
+
+    // 📊 SAVE HISTORY
+    saveHistory(url, finalData);
+
+    // ==========================
+    // 🚨 BLOCK ONLY AFTER STORAGE
+    // ==========================
+    if (finalData.risk === "fraud-high" && tabId !== null) {
+
+      chrome.tabs.get(tabId, (tab) => {
+        if (!tab || tab.url.includes("warning.html")) return;
+
+        chrome.tabs.update(tabId, {
+          url: chrome.runtime.getURL("warning.html")
+        });
       });
     }
 
+    isAnalyzing = false;
     return finalData;
 
   } catch (error) {
-    console.error("❌ Fetch failed:", error);
 
-    // 🟡 IMPORTANT FIX → network/API fail = suspicious (NOT safe)
+    console.error("❌ API FAILED:", error);
+
     const fallback = {
       fraud_score: 50,
-      risk: "suspicious"
+      risk: "suspicious",
+      reasons: ["Unable to verify website"],
+      explanation: "⚠ Could not analyze this site. Proceed with caution."
     };
 
-    chrome.storage.local.set({ scanResult: fallback });
+    await new Promise((resolve) => {
+      chrome.storage.local.set({
+        scanResult: fallback,
+        originalUrl: url
+      }, resolve);
+    });
 
+    saveHistory(url, fallback);
+
+    isAnalyzing = false;
     return fallback;
   }
 }
 
 
-// 🚀 DEBOUNCE (PREVENT SPAM CALLS)
-function debounceAnalyze(url) {
+// ==========================
+// 🚀 HISTORY STORAGE
+// ==========================
+function saveHistory(url, result) {
+
+  chrome.storage.local.get("history", (data) => {
+
+    let history = data.history || [];
+
+    history.unshift({
+      url: url,
+      score: result.fraud_score,
+      risk: result.risk,
+      time: new Date().toLocaleString()
+    });
+
+    history = history.slice(0, 20);
+
+    chrome.storage.local.set({ history });
+  });
+}
+
+
+// ==========================
+// 🚀 DEBOUNCE
+// ==========================
+function debounceAnalyze(tabId, url) {
+
   clearTimeout(debounceTimer);
 
   debounceTimer = setTimeout(() => {
-    analyzeUrl(url);
+    analyzeUrl(url, tabId);
   }, 500);
 }

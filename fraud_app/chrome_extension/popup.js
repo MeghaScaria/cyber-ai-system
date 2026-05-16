@@ -9,22 +9,27 @@ document.addEventListener("DOMContentLoaded", () => {
   const refreshBtn = document.getElementById("refreshQuote");
   const quoteBox = document.querySelector(".quote-glass");
 
+  const reasonsList = document.getElementById("reasonsList");
+  const explanationText = document.getElementById("explanationText");
+  const openHistoryBtn = document.getElementById("openHistory");
+
   const canvas = document.getElementById("scoreCanvas");
   const ctx = canvas.getContext("2d");
 
   const bg = document.getElementById("bgCanvas");
   const bgCtx = bg.getContext("2d");
 
-  // 🔥 STATE
+  const alertSound = new Audio(chrome.runtime.getURL("alert.mp3"));
+
   let currentState = "safe";
-  let isLoading = false;
   let currentColor = "#00ff99";
 
-  // 🌌 BACKGROUND SIZE
+  // ==========================
+  // 🌌 BACKGROUND ANIMATION
+  // ==========================
   bg.width = window.innerWidth;
   bg.height = window.innerHeight;
 
-  // 🔥 PARTICLES
   let particles = Array.from({ length: 40 }, () => ({
     x: Math.random() * bg.width,
     y: Math.random() * bg.height,
@@ -50,7 +55,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   animateBg();
 
-  // 🔥 QUOTES
+  // ==========================
+  // 💬 QUOTES
+  // ==========================
   const safeQuotes = ["You're safe online 👍", "Enjoy browsing ✨"];
   const warningQuotes = ["Be careful ⚠", "Looks suspicious 👀"];
   const dangerQuotes = ["Avoid immediately 🚫", "High risk ⚠"];
@@ -59,13 +66,11 @@ document.addEventListener("DOMContentLoaded", () => {
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
+  // ==========================
   // 🎯 DRAW METER
-  function drawMeter(score) {
+  // ==========================
+  function drawMeter(score, color) {
     ctx.clearRect(0, 0, 120, 120);
-
-    let color = "#00ff99";
-    if (score > 70) color = "#ff4d4d";
-    else if (score > 40) color = "#ffd93d";
 
     ctx.beginPath();
     ctx.arc(60, 60, 50, 0, Math.PI * 2);
@@ -91,70 +96,85 @@ document.addEventListener("DOMContentLoaded", () => {
     ctx.fillText(score + "%", 60, 65);
   }
 
+  // ==========================
   // 🚀 DISPLAY RESULT
+  // ==========================
   function displayResult(data) {
+
+    if (!data) {
+      status.innerText = "⚠ No data";
+      return;
+    }
 
     const score = data.fraud_score || 0;
 
-    // 🔴 FRAUD
+    reasonsList.innerHTML = "";
+    explanationText.innerText = data.explanation || "";
+
+    if (data.reasons?.length) {
+      data.reasons.forEach(reason => {
+        const li = document.createElement("li");
+        li.textContent = "• " + reason;
+        reasonsList.appendChild(li);
+      });
+    }
+
     if (data.risk === "fraud-high") {
       currentState = "danger";
       currentColor = "#ff4d4d";
 
-      status.innerText = "⚠ Fraud Detected";
-      status.style.color = "#ff4d4d";
+      status.innerText = "🚨 Fraud Detected";
+      status.style.color = currentColor;
 
       quote.innerText = getRandom(dangerQuotes);
-      quote.style.color = "#ff4d4d";
+      quote.style.color = currentColor;
 
       quoteBox.style.border = "1px solid rgba(255,77,77,0.5)";
+      alertSound.play();
     }
 
-    // 🟡 SUSPICIOUS
-    else if (data.risk === "suspicious" || score > 40) {
+    else if (data.risk === "suspicious") {
       currentState = "warning";
       currentColor = "#ffd93d";
 
-      status.innerText = "⚠ Suspicious Website";
-      status.style.color = "#ffd93d";
+      status.innerText = "⚠ Suspicious";
+      status.style.color = currentColor;
 
       quote.innerText = getRandom(warningQuotes);
-      quote.style.color = "#ffd93d";
+      quote.style.color = currentColor;
 
       quoteBox.style.border = "1px solid rgba(255,217,61,0.5)";
     }
 
-    // 🟢 SAFE
     else {
       currentState = "safe";
       currentColor = "#00ff99";
 
-      status.innerText = "✔ Safe Website";
-      status.style.color = "#00ff99";
+      status.innerText = "✔ Safe";
+      status.style.color = currentColor;
 
       quote.innerText = getRandom(safeQuotes);
-      quote.style.color = "#00ff99";
+      quote.style.color = currentColor;
 
       quoteBox.style.border = "1px solid rgba(0,255,150,0.5)";
     }
 
-    drawMeter(score);
+    drawMeter(score, currentColor);
     scoreText.innerText = "Risk Score: " + score + "%";
   }
 
-  // 🔄 REFRESH QUOTE
-  refreshBtn.addEventListener("click", () => {
-    if (currentState === "danger") quote.innerText = getRandom(dangerQuotes);
-    else if (currentState === "warning") quote.innerText = getRandom(warningQuotes);
-    else quote.innerText = getRandom(safeQuotes);
+  // ==========================
+  // 🔥 AUTO LOAD (NO API CALL)
+  // ==========================
+  chrome.storage.local.get("scanResult", (res) => {
+    displayResult(res.scanResult);
   });
 
-  // 🚀 BUTTON CLICK
+  // ==========================
+  // 🔘 MANUAL SCAN (TRIGGER BACKGROUND ONLY)
+  // ==========================
   btn.addEventListener("click", async () => {
 
-    if (isLoading) return;
-
-    isLoading = true;
     btn.disabled = true;
     loader.classList.remove("hidden");
 
@@ -163,22 +183,38 @@ document.addEventListener("DOMContentLoaded", () => {
       currentWindow: true
     });
 
-    chrome.runtime.sendMessage(
-      { type: "CHECK_URL", url: tab.url },
-      (response) => {
+    // 👇 ONLY TRIGGER BACKGROUND
+    chrome.runtime.sendMessage({
+      type: "CHECK_URL",
+      url: tab.url
+    });
 
+    // wait a bit then read updated result
+    setTimeout(() => {
+      chrome.storage.local.get("scanResult", (res) => {
+        displayResult(res.scanResult);
         loader.classList.add("hidden");
-
-        if (!response || !response.success) {
-          status.innerText = "API Error";
-        } else {
-          displayResult(response.data);
-        }
-
-        isLoading = false;
         btn.disabled = false;
-      }
-    );
+      });
+    }, 800);
+  });
+
+  // ==========================
+  // 🔄 REFRESH QUOTE
+  // ==========================
+  refreshBtn.addEventListener("click", () => {
+    if (currentState === "danger") quote.innerText = getRandom(dangerQuotes);
+    else if (currentState === "warning") quote.innerText = getRandom(warningQuotes);
+    else quote.innerText = getRandom(safeQuotes);
+  });
+
+  // ==========================
+  // 📊 HISTORY
+  // ==========================
+  openHistoryBtn.addEventListener("click", () => {
+    chrome.tabs.create({
+      url: chrome.runtime.getURL("history.html")
+    });
   });
 
 });

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Blocked - Fraud AI Shield</title>
+
+  <style>
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #0b0f1a, #05070c);
+      color: white;
+      font-family: 'Segoe UI', sans-serif;
+
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 🌧️ RAIN BACKGROUND */
+    #rainCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    .container {
+      width: 90%;
+      max-width: 420px;
+      text-align: center;
+      position: relative;
+      z-index: 2; /* ABOVE RAIN */
+    }
+
+    h1 {
+      font-size: 26px;
+      margin-bottom: 5px;
+    }
+
+    .sub {
+      font-size: 13px;
+      opacity: 0.6;
+      margin-bottom: 20px;
+    }
+
+    /* 🎯 RING WRAPPER */
+    .ring {
+      width: 130px;
+      height: 130px;
+      margin: auto;
+      position: relative;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    .score-text {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    /* 📦 RESULT BOX */
+    .box {
+      margin-top: 20px;
+      padding: 18px;
+      border-radius: 14px;
+
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(12px);
+
+      border: 1px solid rgba(255,255,255,0.1);
+
+      transition: 0.3s;
+    }
+
+    #status {
+      font-weight: bold;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    #explanation {
+      font-size: 13px;
+      opacity: 0.85;
+      margin-bottom: 10px;
+    }
+
+    ul {
+      text-align: left;
+      font-size: 12px;
+      padding-left: 18px;
+    }
+
+    ul li {
+      margin-bottom: 5px;
+      color: #ccc;
+    }
+
+    /* 🔘 BUTTONS */
+    .buttons {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    button {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: 0.25s;
+    }
+
+    .back {
+      background: #00ff99;
+      color: black;
+    }
+
+    .continue {
+      background: #ff4d4d;
+      color: white;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <!-- 🌧️ RAIN CANVAS (FULL PAGE EFFECT) -->
+  <canvas id="rainCanvas"></canvas>
+
+  <div class="container">
+
+    <h1 id="title">🔍 Scanning...</h1>
+    <p class="sub">Analyzing website security...</p>
+
+    <!-- 🎯 RING -->
+    <div class="ring">
+      <canvas id="bgRing" width="130" height="130"></canvas>
+      <canvas id="progressRing" width="130" height="130"></canvas>
+      <div class="score-text">
+        <span id="scoreText">0%</span>
+      </div>
+    </div>
+
+    <div class="box">
+      <p id="status"></p>
+      <p id="explanation"></p>
+      <ul id="reasons"></ul>
+    </div>
+
+    <div class="buttons">
+      <button class="back" id="goBack">⬅ Go Back</button>
+      <button class="continue" id="continue">⚠ Continue Anyway</button>
+    </div>
+
+  </div>
+
+  <script src="warning.js"></script>
+
+</body>
+</html>
